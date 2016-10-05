@@ -1,0 +1,135 @@
+@version: {{ syslog_ng_version }}
+# Syslog-ng default configuration file for Gentoo Linux
+# https://bugs.gentoo.org/show_bug.cgi?id=426814
+@include "scl.conf"
+
+##
+## This file manages by Ansible automation
+## any changes made out of Ansible will lost
+##
+
+options { 
+    use-fqdn(yes);
+    normalize-hostnames(yes); # convert hostnames to lowercase
+    threaded(yes);
+    keep_hostname(yes);
+    chain_hostnames(no); 
+
+    # The default action of syslog-ng is to log a STATS line
+    # to the file every 10 minutes.  That's pretty ugly after a while.
+    # Change it to every 12 hours so you get a nice daily update of
+    # how many messages syslog-ng missed (0).
+    stats_freq(43200); 
+    # The default action of syslog-ng is to log a MARK line
+    # to the file every 20 minutes.  That's seems high for most
+    # people so turn it down to once an hour.  Set it to zero
+    # if you don't want the functionality at all.
+    mark_freq(3600); 
+};
+
+source local { system(); };
+
+{% if syslog_server_profile|default('') in syslog_profiles and syslog_profiles[syslog_server_profile].servers|length > 0 %}
+source s_remote_clients { 
+{% for srv in syslog_profiles[syslog_server_profile].servers %}
+    syslog(
+        ip({{ srv.ip }}) 
+        port({{ srv.port }}) 
+        transport({{ srv.transport }})
+{% if srv.transport == 'tls' %}
+        tls(
+            ca-dir("{{ syslog_certs_dir }}")
+            key-file("{{ syslog_certs_dir }}/syslog-{{ inventory_hostname }}.key.pem")
+            cert-file("{{ syslog_certs_dir }}/syslog-{{ inventory_hostname }}.cert.pem")
+        )
+{% endif %}
+    );
+{% endfor %}
+};
+# destination d_remote_clients { file("/var/log/remote-clients.log" owner(root) group(root) perm(0640)); };
+# log         { source(s_remote_clients); destination(d_remote_clients); };
+{% endif %}
+
+{% if syslog_client_profile|default('') in syslog_profiles and syslog_profiles[syslog_client_profile].servers|length > 0 %}
+destination d_remote_servers {
+{% for srv in syslog_profiles[syslog_client_profile].servers %}
+    syslog("{{ srv.ip }}"
+        transport("{{ srv.transport }}")
+        port("{{ srv.port }}")
+{% if srv.transport == 'tls' %}
+        tls(peer-verify(optional-untrusted)
+            ca-dir("{{ syslog_certs_dir }}")
+            key-file("{{ syslog_certs_dir }}/{{ inventory_hostname }}.key.pem")
+            cert-file("{{ syslog_certs_dir }}/{{ inventory_hostname }}.cert.pem")
+        )
+{% endif %}
+    );
+{% endfor %}
+};
+
+### Send all logs to remote servers for cental logging
+### before messages are being handled locally
+log { source(local); destination(d_remote_servers); };
+{% endif %}
+
+###
+### Local services definitions
+### 
+{% for logservice in syslog_extra_services + syslog_standard_services %}
+
+{% set df_group = logservice.df_group|default('root') %}
+{% if ansible_system == 'FreeBSD' and df_group == 'root' %}
+{% set df_group = 'wheel' %}
+{% endif %}
+### Service: {{ logservice.id }} ###
+    filter      f_{{ logservice.id }} { {{ logservice.filter|default('') }}; };
+{% if logservice.source == 'local' %}
+    destination d_{{ logservice.id }} { file("{{ syslog_logdir }}/{{ logservice.filepath }}" owner({{ logservice.df_owner|default('root') }}) group({{ df_group|default('root') }}) perm({{ logservice.df_perm|default('0640') }})); };
+{% endif %}
+{% if logservice.final|default(false) %}
+{% set f_flag = 'flags(final);' %}
+{% else %}
+{% set f_flag = '' %}
+{% endif %}
+    log         { source({{ logservice.source }}); filter(f_{{ logservice.id }}); destination(d_{{ logservice.id }}); {{ f_flag }} };
+{% endfor %}
+
+###
+### End local services definitions
+### 
+
+
+# By default messages are logged to tty12...
+# ...if you intend to use /dev/console for programs like xconsole
+# you can comment out the destination line above that references /dev/tty12
+# and uncomment the line below.
+#destination console_all { file("/dev/console"); };
+
+
+
+{% if syslog_server_profile|default('') in syslog_profiles and syslog_profiles[syslog_server_profile].servers|length > 0 %}
+###
+### Loggers for remote client services definitions
+### 
+{% for logservice in syslog_standard_services %}
+
+{% set df_group = logservice.df_group|default('root') %}
+{% if ansible_system == 'FreeBSD' and df_group == 'root' %}
+{% set df_group = 'wheel' %}
+{% endif %}
+### Service: {{ logservice.id }} ###
+{% if logservice.source == 'local' %}
+    destination dr_{{ logservice.id }} { file("{{ syslog_logdir }}/remote-logs/${HOST}/{{ logservice.filepath }}" owner({{ logservice.df_owner|default('root') }}) group({{ df_group|default('root') }}) perm({{ logservice.df_perm|default('0640') }}) create-dirs(yes) ); };
+{% endif %}
+{% if logservice.final|default(false) %}
+{% set f_flag = 'flags(final);' %}
+{% else %}
+{% set f_flag = '' %}
+{% endif %}
+    log         { source(s_remote_clients); filter(f_{{ logservice.id }}); destination(dr_{{ logservice.id }}); {{ f_flag }} };
+{% endfor %}
+###
+### End remote clients services definitions
+### 
+{% endif %}
+

@@ -1,0 +1,4 @@
+syslog_root_path: /etc/syslog-ng
+syslog_certs_dir: /etc/syslog-ng/certs
+syslog_create_dirs_group: root
+

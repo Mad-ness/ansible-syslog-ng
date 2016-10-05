@@ -1,0 +1,36 @@
+---
+
+- name: Loading OS related variables
+  include_vars: '{{ ansible_system }}.yml'
+
+
+- name: Ensure root directory exists
+  file: 
+    path: '{{ syslog_root_path }}'
+    owner: 'root'
+    mode: '0755'
+    state: directory
+  tags: [ 'config-file' ]
+
+
+- name: Deploy configuration files
+  template:
+    src: syslog-ng.conf.j2
+    dest: '{{ syslog_root_path }}/syslog-ng.conf'
+    owner: root
+    mode: '0644'
+  tags: [ 'config-file' ]
+  notify: [ 'Restart-syslog-ng' ]
+
+
+- name: Ensure symlink on main config file is corrected
+  file: 
+    path: '/usr/local/etc/syslog-ng.conf'
+    src: '{{ syslog_root_path }}/syslog-ng.conf'
+    state: link
+  tags: [ 'config-file' ]
+  when: ansible_system == 'FreeBSD'
+
+
+- include: deploy_certs.yml
+

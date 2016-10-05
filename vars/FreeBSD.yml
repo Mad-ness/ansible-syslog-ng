@@ -1,0 +1,4 @@
+syslog_root_path: /usr/local/etc/syslog-ng
+syslog_certs_dir: /usr/local/etc/syslog-ng/certs
+syslog_create_dirs_group: wheel
+

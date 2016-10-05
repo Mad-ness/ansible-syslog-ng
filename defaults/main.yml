@@ -1,0 +1,113 @@
+---
+syslog_logdir: /var/log
+syslog_ng_version: 3.7
+syslog_certs_dir: /etc/syslog-ng/certs
+
+syslog_send_logs_to_central_server: true
+syslog_client_profile: airlan
+syslog_server_profile: []
+
+# Extra services to be personalized on each hosts if needed
+syslog_extra_services: []
+syslog_standard_services:
+  - id: auth_err
+    source: local
+    filepath: auth.err
+    filter: facility(auth) and level(err)
+    final: true
+  - id: sshd
+    source: local
+    filepath: sshd.log
+    filter: program(sshd)
+    final: true
+  - id: mail_err
+    source: local
+    filepath: mail.err
+    final: true
+    filter: facility(mail) and level(err)
+  - id: mail_info
+    source: local
+    filepath: mail.info
+    final: true
+    filter: facility(mail) and level(info)
+  - id: mail_warn
+    source: local
+    filepath: mail.warn
+    final: true
+    filter: facility(mail) and level(warn)
+  - id: mail
+    source: local
+    filepath: mail.log
+    filter: facility(mail)
+    final: true
+    df_owner: root
+    df_group: root
+    df_perm: '0644'
+  - id: kernel
+    source: local
+    filepath: kernel.log
+    filter: facility(kern)
+    final: true
+  - id: auth
+    source: local
+    filepath: auth.log
+    filter: facility(auth)
+    final: true
+  - id: crond
+    source: local
+    filepath: cron.log
+    filter: facility(cron)
+    final: true
+  - id: ntpd
+    source: local
+    filepath: ntpd.log
+    filter: program(ntpd)
+    final: true
+  - id: warn
+    source: local
+    filepath: warn.log
+    filter: level(warn..emerg) and not facility(kern)
+    final: true
+  - id: debug
+    source: local
+    filepath: debug.log
+    filter: level(debug)
+    final: true
+  - id: openvpn
+    source: local
+    filter: program(openvpn)
+    filepath: openvpn.log
+    final: true
+  - id: sudo_err
+    source: local
+    filter: program(sudo) and level(err)
+    filepath: sudo.err
+    final: true
+  - id: sudo
+    source: local
+    filter: program(sudo)
+    filepath: sudo.log
+    final: true
+  - id: messages
+    source: local
+    filter: message('.*')
+    filepath: messages
+    final: true
+
+
+
+syslog_profiles:
+  airlan:
+    servers:
+    - { ip: '192.168.168.103', port: '25214', transport: 'tls' }
+#    - { ip: '192.168.168.103', port: '25213', transport: 'udp' }
+  serv03:
+    servers: [ { ip: '10.6.0.1', port: '56101', transport: 'udp' } ]
+  madness:
+    servers: [ { ip: serv03.freeping.biz, port: 25214, transport: 'tls' } ]
+
+
+sslcert_certs_location: ../../../files/certs
+sslcert_cert_caname: ca.cert.pem
+sslcert_cert_ext: '.cert.pem'
+

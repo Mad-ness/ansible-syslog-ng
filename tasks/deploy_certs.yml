@@ -1,0 +1,38 @@
+---
+
+
+- name: Ensure a directory for certificates presents
+  file: 
+    path: '{{ syslog_certs_dir }}'
+    owner: 'root'
+    mode: '0755'
+    state: directory
+
+
+- name: Copy cert files to the cert directory (clients only)
+  copy: 
+    src: '{{ sslcert_certs_location }}/{{ item.subdir }}/{{ item.fname }}{{ item.file_ext }}'
+    dest: '{{ syslog_certs_dir }}/{{ item.fname }}{{ item.file_ext }}'
+    owner: 'root'
+    mode: '{{ item.mode }}'
+  with_items:
+  - { fname: '{{ inventory_hostname }}', subdir: 'certs/clients', file_ext: '{{ sslcert_cert_ext }}', mode: '0644' }
+  - { fname: '{{ inventory_hostname }}', subdir: 'private', file_ext: '{{ sslcert_key_ext }}', mode: '0400' }
+  - { fname: 'ca', subdir: 'certs', file_ext: '{{ sslcert_cert_ext }}', mode: '0644' }
+  notify: [ 'Restart-syslog-ng' ]
+  when: syslog_client_profile is defined and syslog_client_profile in syslog_profiles
+
+
+- name: Copy cert files to the cert directory (servers only)
+  copy: 
+    src: '{{ sslcert_certs_location }}/{{ item.subdir }}/{{ item.fname }}{{ item.file_ext }}'
+    dest: '{{ syslog_certs_dir }}/{{ item.fname }}{{ item.file_ext }}'
+    owner: 'root'
+    mode: '{{ item.mode }}'
+  with_items:
+  - { fname: '{{ inventory_hostname }}', subdir: 'certs/servers', file_ext: '{{ sslcert_cert_ext }}', mode: '0644' }
+  - { fname: '{{ inventory_hostname }}', subdir: 'private', file_ext: '{{ sslcert_key_ext }}', mode: '0400' }
+  - { fname: 'ca', subdir: 'certs', file_ext: '{{ sslcert_cert_ext }}', mode: '0644' }
+  notify: [ 'Restart-syslog-ng' ]
+  when: syslog_server_profile is defined and syslog_server_profile in syslog_profiles
+
