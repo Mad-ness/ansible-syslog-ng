@@ -66,6 +66,8 @@ A profile that will be activated for each of a server Syslog-Ng instances
 
 If a current instance should log messages to remote server it should have **syslog_client_profile** filled. And otherwise it should have configured **syslog_server_profile** to configure syslog for accepting incoming log messages. Same host may have both profiles set, in these case it runs a server part and sends logs to other syslog servers.
 
+If both profiles are blank then no remote logging will be configured and log messages will store in local log files.
+
 
 In case of a **syslog_server_profile** configured and a profile have **transport** variable set (see below), there must exist a private SSL key (see below).
 
